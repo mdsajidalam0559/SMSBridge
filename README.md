@@ -35,12 +35,12 @@ The system uses a push-based architecture to ensure low latency and battery effi
 
 ##  Features
 
-- ** RESTful API**: Clean, documented endpoints for queuing messages and managing devices.
-- ** Real-time Delivery**: Uses FCM for instant message delivery (sub-5s latency).
-- ** Status Tracking**: Granular status updates: `QUEUED` → `SENT` → `DELIVERED` (or `FAILED`).
-- ** Multi-Device Support**: Register multiple Android phones and route messages to specific devices via `device_id`.
-- ** Secure**: API Key authentication for all endpoints.
-- ** Battery Efficient**: Event-driven architecture; no background polling required.
+-  RESTful API: Clean, documented endpoints for queuing messages and managing devices.
+-  Real-time Delivery: Uses FCM for instant message delivery (sub-5s latency).
+-  Status Tracking: Granular status updates: `QUEUED` → `SENT` → `DELIVERED` (or `FAILED`).
+-  Multi-Device Support: Register multiple Android phones and route messages to specific devices via `device_id`.
+-  Secure: API Key authentication for all endpoints.
+-  Battery Efficient: Event-driven architecture; no background polling required.
 
 ---
 
