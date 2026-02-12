@@ -60,7 +60,7 @@ The system uses a push-based architecture to ensure low latency and battery effi
 
 ---
 
-## ⚙️ Prerequisites
+##  Prerequisites
 
 - **Python 3.9+** installed on your server/machine.
 - **Android Device** (Android 8.0 Oreo or higher) with Google Play Services.
@@ -70,7 +70,7 @@ The system uses a push-based architecture to ensure low latency and battery effi
 
 ---
 
-## � Installation
+##  Installation
 
 ### Backend Setup
 
