@@ -10,7 +10,7 @@ A robust, self-hosted SMS gateway solution that transforms your Android device i
 
 ---
 
-## 📖 Table of Contents
+##  Table of Contents
 
 - [Architecture](#-architecture)
 - [Features](#-features)
@@ -25,7 +25,7 @@ A robust, self-hosted SMS gateway solution that transforms your Android device i
 
 ---
 
-## 🏗 Architecture
+##  Architecture
 
 The system uses a push-based architecture to ensure low latency and battery efficiency. The Android app does not poll the server; instead, it waits for high-priority FCM data messages to trigger SMS sending.
 
@@ -33,18 +33,18 @@ The system uses a push-based architecture to ensure low latency and battery effi
 
 ---
 
-## ✨ Features
+##  Features
 
-- **🚀 RESTful API**: Clean, documented endpoints for queuing messages and managing devices.
-- **⚡ Real-time Delivery**: Uses FCM for instant message delivery (sub-5s latency).
-- **📊 Status Tracking**: Granular status updates: `QUEUED` → `SENT` → `DELIVERED` (or `FAILED`).
-- **📱 Multi-Device Support**: Register multiple Android phones and route messages to specific devices via `device_id`.
-- **🔐 Secure**: API Key authentication for all endpoints.
-- **🔋 Battery Efficient**: Event-driven architecture; no background polling required.
+- ** RESTful API**: Clean, documented endpoints for queuing messages and managing devices.
+- ** Real-time Delivery**: Uses FCM for instant message delivery (sub-5s latency).
+- ** Status Tracking**: Granular status updates: `QUEUED` → `SENT` → `DELIVERED` (or `FAILED`).
+- ** Multi-Device Support**: Register multiple Android phones and route messages to specific devices via `device_id`.
+- ** Secure**: API Key authentication for all endpoints.
+- ** Battery Efficient**: Event-driven architecture; no background polling required.
 
 ---
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 **Backend**
 - **Framework**: FastAPI (Python)
@@ -121,7 +121,7 @@ The system uses a push-based architecture to ensure low latency and battery effi
 
 ---
 
-## 📡 API Reference
+##  API Reference
 
 Interactive validation documentation is available at `/docs` (Swagger UI).
 
@@ -168,7 +168,7 @@ Interactive validation documentation is available at `/docs` (Swagger UI).
 
 ---
 
-## ⚠️ Troubleshooting
+##  Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
@@ -179,6 +179,6 @@ Interactive validation documentation is available at `/docs` (Swagger UI).
 
 ---
 
-## � License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
