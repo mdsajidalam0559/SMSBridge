@@ -10,7 +10,7 @@ env.bak/
 venv.bak/
 service-account.json
 sms_gateway.db
-static/
+
 android/build/
 android/app/build/
 android/.gradle/
