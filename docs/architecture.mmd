@@ -1,0 +1,82 @@
+sequenceDiagram
+    autonumber
+    participant App as Your App / Service
+    participant Server as SMS Gateway Server<br/>(FastAPI)
+    participant DB as SQLite Database
+    participant FCM as Firebase Cloud<br/>Messaging
+    participant Phone1 as Android Device 1<br/>(Primary)
+    participant Phone2 as Android Device 2<br/>(Failover)
+    participant Carrier as Carrier Network
+
+    note over Phone1,Phone2: One-time Setup: Device Registration
+
+    Phone1->>Server: POST /devices/register<br/>{name, fcm_token, hardware_id}
+    Server->>DB: Create device record<br/>Generate API key (sg_xxx)
+    Server-->>Phone1: {id, api_key}
+    Phone1->>Phone1: Store API key locally
+
+    Phone2->>Server: POST /devices/register<br/>{name, fcm_token, hardware_id}
+    Server->>DB: Create device record<br/>Generate API key (sg_xxx)
+    Server-->>Phone2: {id, api_key}
+
+    note over Phone1,Phone2: Background: Heartbeats every 15 min
+
+    loop Every 15 minutes
+        Phone1->>Server: POST /devices/heartbeat<br/>X-API-Key: sg_xxx
+        Server->>DB: Update last_seen_at
+        Server-->>Phone1: {status: "online"}
+    end
+
+    note over App,Carrier: SMS Dispatch Flow (with failover)
+
+    App->>Server: POST /sms/dispatch<br/>{to: "+123...", message: "OTP: 4821"}
+    Server->>DB: Query devices ORDER BY<br/>last_seen_at DESC
+
+    rect rgb(220, 240, 220)
+        note right of Server: Attempt 1: Primary device (5s timeout)
+        Server->>DB: Create message (PENDING)
+        Server->>FCM: Send high-priority data message<br/>{action, message_id, recipient, message}
+        FCM->>Phone1: Push notification
+        Server->>DB: Update status to QUEUED
+
+        Phone1->>Phone1: SmsManager.sendTextMessage()
+        Phone1->>Carrier: Send SMS
+        Carrier-->>Phone1: Delivery report
+
+        Phone1->>Server: POST /sms/status<br/>{message_id, status: "SENT"}
+        Server->>DB: Update status to SENT<br/>Set sent_at timestamp
+    end
+
+    Server-->>App: {message_id: "...", status: "SENT"}
+
+    note over App,Carrier: Failover Scenario
+
+    App->>Server: POST /sms/dispatch<br/>{to: "+456...", message: "Alert!"}
+    Server->>DB: Query devices ORDER BY<br/>last_seen_at DESC
+
+    rect rgb(255, 220, 220)
+        note right of Server: Attempt 1: Primary device fails
+        Server->>DB: Create message (PENDING)
+        Server->>FCM: Send push to Device 1
+        FCM->>Phone1: Push notification
+        Server->>DB: Update status to QUEUED
+        Phone1--xServer: No response (timeout 5s)
+        Server->>DB: Update status to FAILED<br/>error: "Timeout"
+    end
+
+    rect rgb(220, 240, 220)
+        note right of Server: Attempt 2: Failover to Device 2
+        Server->>DB: Create message (PENDING)
+        Server->>FCM: Send push to Device 2
+        FCM->>Phone2: Push notification
+        Server->>DB: Update status to QUEUED
+
+        Phone2->>Phone2: SmsManager.sendTextMessage()
+        Phone2->>Carrier: Send SMS
+        Carrier-->>Phone2: Delivery report
+
+        Phone2->>Server: POST /sms/status<br/>{message_id, status: "SENT"}
+        Server->>DB: Update status to SENT
+    end
+
+    Server-->>App: {message_id: "...", status: "SENT"}
