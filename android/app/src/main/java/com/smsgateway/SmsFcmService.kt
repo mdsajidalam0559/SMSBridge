@@ -63,10 +63,19 @@ class SmsFcmService : FirebaseMessagingService() {
             deliveredIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        if (!SmsLimitManager.canSend(context)) {
+            Log.e(TAG, "Daily SMS limit reached. Cannot send to $recipient")
+            SmsStatusReceiver.reportStatus(context, messageId, "FAILED", "Daily SMS limit reached")
+            return
+        }
+
         try {
             val smsManager = context.getSystemService(SmsManager::class.java)
             smsManager.sendTextMessage(recipient, null, message, sentPI, deliveredPI)
             Log.d(TAG, "SMS queued for $recipient")
+            
+            // Increment the counter
+            SmsLimitManager.increment(context)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send SMS", e)
             SmsStatusReceiver.reportStatus(context, messageId, "FAILED", e.message)

@@ -23,6 +23,7 @@ class Device(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, nullable=False)
     fcm_token = Column(Text, nullable=False)
+    hardware_id = Column(String, unique=True, nullable=True)
     api_key = Column(String, unique=True, nullable=False, default=generate_api_key)
     created_at = Column(DateTime, default=utcnow)
     last_seen_at = Column(DateTime, default=utcnow)

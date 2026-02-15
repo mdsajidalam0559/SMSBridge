@@ -35,12 +35,12 @@ The system uses a push-based architecture to ensure low latency and battery effi
 
 ##  Features
 
--  RESTful API: Clean, documented endpoints for queuing messages and managing devices.
--  Real-time Delivery: Uses FCM for instant message delivery (sub-5s latency).
--  Status Tracking: Granular status updates: `QUEUED` → `SENT` → `DELIVERED` (or `FAILED`).
--  Multi-Device Support: Register multiple Android phones and route messages to specific devices via `device_id`.
--  Secure: API Key authentication for all endpoints.
--  Battery Efficient: Event-driven architecture; no background polling required.
+-  **Smart Routing**: Automatically routes SMS to the most recently active device.
+-  **Failover Logic**: Sequentially tries multiple devices if one is offline or times out (10s max wait).
+-  **Daily Limits**: Enforces a daily SMS limit (default 90) per device to prevent spam/blocking.
+-  **Real-time Delivery**: Uses FCM for instant message delivery (sub-5s latency).
+-  **Status Tracking**: Granular status updates: `QUEUED` → `SENT` → `DELIVERED` (or `FAILED` with specific error).
+-  **Feedback Loop**: Synchronous API response (`SENT` or `FAILED`) for better UX.
 
 ---
 
@@ -50,92 +50,98 @@ The system uses a push-based architecture to ensure low latency and battery effi
 - **Framework**: FastAPI (Python)
 - **Database**: SQLite (via SQLAlchemy)
 - **Push Notifications**: Firebase Admin SDK
-- **Server**: Uvicorn
+- **Containerization**: Docker & Docker Compose
 
 **Mobile**
 - **OS**: Android (Min SDK 26)
 - **Language**: Kotlin
-- **Networking**: OkHttp
-- **Background Work**: Firebase Messaging Service + Broadcast Receivers
+- **Networking**: OkHttp + WorkManager (Heartbeats)
+- **Background Work**: Firebase Messaging Service
 
 ---
 
 ##  Prerequisites
 
-- **Python 3.9+** installed on your server/machine.
-- **Android Device** (Android 8.0 Oreo or higher) with Google Play Services.
+- **Docker Desktop** (Recommended) OR **Python 3.9+**.
+- **Android Device** (Android 8.0 Oreo or higher).
 - **Firebase Project**:
-  - `service-account.json` (for Backend)
-  - `google-services.json` (for Android App)
+  - `service-account.json` (Place in root for Backend)
+  - `google-services.json` (Place in `android/app/` for Android App)
 
 ---
 
 ##  Installation
 
-### Backend Setup
+### Option 1: Docker (Recommended)
 
-1. **Clone the repository**
+1. **Clone & Setup Config**
    ```bash
    git clone <your-repo-url>
    cd sms_gateway
+   # Place your service-account.json in this directory
    ```
 
-2. **Install Dependencies**
+2. **Run with Docker Compose**
+   ```bash
+   docker-compose up --build -d
+   ```
+   The API will be available at `http://localhost:9000`.
+
+### Option 2: Manual Python Setup
+
+1. **Install Dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Configuration**
-   Copy the example environment file:
+2. **Run Server**
    ```bash
-   cp .env.example .env
+   # Make sure to set environment variables or use .env
+   uvicorn app.main:app --host 0.0.0.0 --port 9000
    ```
-   Edit `.env` and set the path to your Firebase credentials:
-   ```ini
-   FIREBASE_SERVICE_ACCOUNT_PATH=./service-account.json
-   DATABASE_URL=sqlite:///./sms_gateway.db
-   ```
-
-4. **Start the Server**
-   ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-    The API will be available at `http://localhost:8000`.
 
 ### Android Setup
 
-**Option A: Install Pre-built APK**
-1. Download the latest `sms-gateway.apk` from the `static/` directory (or serve it via the backend).
-2. Install it on your Android device (Enable "Install from unknown sources").
-
-**Option B: Build from Source**
-1. Open `sms_gateway/android` in **Android Studio**.
-2. Place your `google-services.json` in `android/app/`.
-3. Build and Run on your device.
-
-**Device Registration:**
-1. Open the app.
-2. Enter your server URL (e.g., `http://192.168.1.100:8000`).
-3. Tap **Register Device**.
-4. Grant **SMS** and **Notification** permissions when prompted.
+1. **Download APK**:
+   Go to `http://localhost:9000/static/sms-gateway.apk` (or use your machine's IP, e.g., `http://192.168.1.100:9000/...`).
+2. **Install & Register**:
+   - Open App.
+   - Enter Server URL (e.g., `http://192.168.1.100:9000`).
+   - Tap **Register**.
+   - **Grant Permissions** (SMS, Notifications).
 
 ---
 
 ##  API Reference
 
-Interactive validation documentation is available at `/docs` (Swagger UI).
+Interactive docs: `http://localhost:9000/docs`
 
-### 1. Send SMS
-**Endpoint**: `POST /sms/send`
+### 1. Send SMS (Smart Dispatch)
+**Endpoint**: `POST /sms/dispatch`
 
-**Headers**: `X-API-Key: <your_api_key>`
+**Headers**: `X-API-Key: <your_api_key>` (Optional if using device key, but good practice)
 
 **Body**:
 ```json
 {
   "to": "+1234567890",
-  "message": "Hello from SMS Gateway!",
-  "device_id": "your-device-uuid"
+  "message": "Hello via Smart Routing!"
+}
+```
+**Response**:
+`{"status": "SENT"}` or `{"status": "FAILED"}` (Waits up to 10s for confirmation).
+
+
+### 2. Check Message Status
+**Endpoint**: `GET /sms/{message_id}`
+
+**Response**:
+```json
+{
+  "id": "uuid",
+  "status": "DELIVERED",
+  "sent_at": "2024-03-20T10:00:00",
+  "error": null
 }
 ```
 

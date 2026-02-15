@@ -8,6 +8,7 @@ from typing import Optional, Literal
 class DeviceRegisterRequest(BaseModel):
     name: str
     fcm_token: str
+    hardware_id: Optional[str] = None
 
 
 class DeviceResponse(BaseModel):
@@ -22,6 +23,11 @@ class DeviceResponse(BaseModel):
 
 
 # ── SMS ─────────────────────────────────────────────────
+
+class SmsDispatchRequest(BaseModel):
+    to: str
+    message: str
+
 
 class SmsSendRequest(BaseModel):
     to: str

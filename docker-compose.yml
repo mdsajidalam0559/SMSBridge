@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  sms-gateway:
+    build: .
+    container_name: sms-gateway
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./sms_gateway.db:/app/sms_gateway.db
+      - ./service-account.json:/app/service-account.json
+      - ./static:/app/static
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_PORT=9000
+      - API_HOST=0.0.0.0
+      - DATABASE_URL=sqlite:///./sms_gateway.db
+      - FIREBASE_SERVICE_ACCOUNT_PATH=./service-account.json
+    restart: unless-stopped

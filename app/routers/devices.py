@@ -8,23 +8,51 @@ from ..models import utcnow
 router = APIRouter(prefix="/devices", tags=["Devices"])
 
 
+from ..auth import get_current_device
+
 @router.post("/register", response_model=DeviceResponse)
 def register_device(req: DeviceRegisterRequest, db: Session = Depends(get_db)):
     """Register an Android device. Returns an API key for future requests."""
-    # Check if device with same FCM token already exists → update it
+    # 1. Try to find by hardware_id (Best for re-installs on same phone)
+    if req.hardware_id:
+        existing = db.query(Device).filter(Device.hardware_id == req.hardware_id).first()
+        if existing:
+            existing.name = req.name
+            existing.fcm_token = req.fcm_token
+            existing.last_seen_at = utcnow()
+            db.commit()
+            db.refresh(existing)
+            return existing
+
+    # 2. Try to find by FCM token (Fallback for legacy or token rotation)
     existing = db.query(Device).filter(Device.fcm_token == req.fcm_token).first()
     if existing:
         existing.name = req.name
         existing.last_seen_at = utcnow()
+        # Adopt hardware_id if it was missing
+        if req.hardware_id:
+            existing.hardware_id = req.hardware_id
         db.commit()
         db.refresh(existing)
         return existing
 
-    device = Device(name=req.name, fcm_token=req.fcm_token)
+    # 3. Create new device
+    device = Device(name=req.name, fcm_token=req.fcm_token, hardware_id=req.hardware_id)
     db.add(device)
     db.commit()
     db.refresh(device)
     return device
+
+
+@router.post("/heartbeat")
+def heartbeat(
+    current_device: Device = Depends(get_current_device),
+    db: Session = Depends(get_db),
+):
+    """Periodic heartbeat from the Android app to show it's online."""
+    current_device.last_seen_at = utcnow()
+    db.commit()
+    return {"status": "online", "last_seen": current_device.last_seen_at}
 
 
 @router.get("/", response_model=list[DeviceResponse])

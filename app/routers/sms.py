@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+import time
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Device, Message, utcnow
@@ -7,6 +8,7 @@ from ..schemas import (
     SmsSendResponse,
     SmsStatusUpdate,
     MessageResponse,
+    SmsDispatchRequest,
 )
 from ..firebase import send_push
 from ..auth import get_current_device
@@ -58,6 +60,88 @@ def send_sms(
         raise HTTPException(status_code=502, detail=f"FCM push failed: {e}")
 
     return SmsSendResponse(message_id=msg.id, status=msg.status)
+
+
+@router.post("/dispatch", response_model=SmsSendResponse)
+def dispatch_sms(
+    req: SmsDispatchRequest,
+    db: Session = Depends(get_db),
+):
+    """Smartly route SMS to the most recently active device. Retries if first fails."""
+    # 1. Get ALL active devices sorted by last_seen_at DESC
+    devices = db.query(Device).order_by(Device.last_seen_at.desc()).all()
+
+    if not devices:
+        raise HTTPException(status_code=503, detail="No devices registered")
+
+    global_deadline = time.time() + 10  # Max 10 seconds total wait
+    last_msg = None
+
+    for device in devices:
+        # Check global deadline
+        remaining_global = global_deadline - time.time()
+        if remaining_global <= 0:
+            break
+
+        # Create message record
+        msg = Message(
+            device_id=device.id,
+            recipient=req.to,
+            body=req.message,
+            status="PENDING",
+        )
+        db.add(msg)
+        db.commit()
+        db.refresh(msg)
+        last_msg = msg
+
+        # Calculate TTL for this attempt (Max 5s, but capped by global deadline)
+        attempt_ttl = min(5, int(remaining_global))
+        if attempt_ttl < 1:
+            attempt_ttl = 1
+
+        try:
+            send_push(
+                fcm_token=device.fcm_token,
+                data={
+                    "action": "send_sms",
+                    "message_id": msg.id,
+                    "recipient": req.to,
+                    "message": req.message,
+                },
+                ttl=attempt_ttl
+            )
+            msg.status = "QUEUED"
+            db.commit()
+        except Exception as e:
+            msg.status = "FAILED"
+            msg.error = f"FCM Error: {str(e)}"
+            msg.failed_at = utcnow()
+            db.commit()
+            continue # Try next device
+
+        # Poll for status change
+        # We poll for 'attempt_ttl' seconds
+        poll_start = time.time()
+        while (time.time() - poll_start) < attempt_ttl:
+            time.sleep(0.1)
+            db.refresh(msg)
+            if msg.status not in ["PENDING", "QUEUED"]:
+                # Success (or explicit failure from phone)
+                return SmsSendResponse(message_id=msg.id, status=msg.status)
+        
+        # If we get here, it timed out
+        msg.status = "FAILED"
+        msg.error = "Timeout / Device Unreachable"
+        msg.failed_at = utcnow()
+        db.commit()
+        # Continue to next device loop...
+
+    # If we fall out of the loop, all attempts failed
+    if last_msg:
+        return SmsSendResponse(message_id=last_msg.id, status=last_msg.status)
+    else:
+         raise HTTPException(status_code=503, detail="All devices failed")
 
 
 @router.post("/status")
